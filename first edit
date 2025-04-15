@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Simple JS Game</title>
+  <title>2 Player Stick Fighters</title>
   <style>
     canvas {
-      background: #eee;
+      background-color: #f0f0f0;
       display: block;
       margin: 20px auto;
       border: 2px solid #333;
@@ -15,106 +15,228 @@
 <body>
 
 <canvas id="gameCanvas" width="600" height="400"></canvas>
+
 <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-  
-    const player = {
-      x: 100,
-      y: 300,
-      width: 40,
-      height: 60,
-      vy: 0,
-      isJumping: false,
-      holdingItem: true,
-      speed: 5
-    };
-  
-    const keys = {
-      left: false,
-      right: false
-    };
-  
-    function drawPlayer() {
-      ctx.fillStyle = 'blue';
-      ctx.fillRect(player.x, player.y, player.width, player.height);
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const player = {
+    x: 150,
+    y: 300,
+    groundY: 300,
+    isKicking: false,
+    isJumping: false,
+    vy: 0,
+    speed: 4,
+    holdingItem: true,
+    color: 'black'
+  };
+
+  const enemy = {
+    x: 450,
+    y: 300,
+    groundY: 300,
+    isKicking: false,
+    isJumping: false,
+    vy: 0,
+    speed: 4,
+    holdingItem: true,
+    color: 'red'
+  };
+
+  const keys = {
+    playerLeft: false,
+    playerRight: false,
+    enemyLeft: false,
+    enemyRight: false
+  };
+
+  const projectiles = [];
+
+  function drawFighter(fighter) {
+    const { x, y, isKicking, color, holdingItem } = fighter;
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 4;
+
+    // Head
+    ctx.beginPath();
+    ctx.arc(x, y - 60, 20, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Body
+    ctx.beginPath();
+    ctx.moveTo(x, y - 40);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+
+    // Arms
+    ctx.beginPath();
+    ctx.moveTo(x - 30, y - 30);
+    ctx.lineTo(x + 30, y - 30);
+    ctx.stroke();
+
+    // Legs
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    if (isKicking) {
+      ctx.lineTo(x + 40, y + 10);
+    } else {
+      ctx.lineTo(x - 20, y + 40);
     }
-  
-    function update() {
-      // Horizontal movement
-      if (keys.left) {
-        player.x -= player.speed;
-      }
-      if (keys.right) {
-        player.x += player.speed;
-      }
-      if (player.move) {
-        player.x -= player.speed;
-        player.x += player.speed;
-      }
-      // Apply gravity
-      if (player.y < 300) {
-        player.vy += 1;
-      } else {
-        player.vy = 0;
-        player.y = 300;
-        player.isJumping = false;
-      }
-  
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + 20, y + 40);
+    ctx.stroke();
+
+    // Item
+    if (holdingItem) {
+      ctx.fillStyle = 'orange';
+      ctx.beginPath();
+      ctx.arc(x + 25, y - 30, 6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawProjectiles() {
+    ctx.fillStyle = 'red';
+    projectiles.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  function update() {
+    // Player 1 movement
+    if (keys.playerLeft) player.x -= player.speed;
+    if (keys.playerRight) player.x += player.speed;
+    player.x = Math.max(20, Math.min(canvas.width - 20, player.x));
+
+    // Player 2 (enemy) movement
+    if (keys.enemyLeft) enemy.x -= enemy.speed;
+    if (keys.enemyRight) enemy.x += enemy.speed;
+    enemy.x = Math.max(20, Math.min(canvas.width - 20, enemy.x));
+
+    // Player jump
+    if (player.isJumping) {
+      player.vy += 1;
       player.y += player.vy;
-  
-      // Clear and redraw
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawPlayer();
-      requestAnimationFrame(update);
+      if (player.y >= player.groundY) {
+        player.y = player.groundY;
+        player.isJumping = false;
+        player.vy = 0;
+      }
     }
-  
-    // Handle keydown
-    document.addEventListener('keydown', (e) => {
-      switch(e.key.toLowerCase()) {
-        case 'a':
-          keys.left = true;
-          break;
-        case 'd':
-          keys.right = true;
-          break;
-        case 'j':
-          if (!player.isJumping) {
-            player.vy = -15;
-            player.isJumping = true;
-            console.log('Jump!');
-          }
-          break;
-        case 'k':
-          console.log('Kick!');
-          
-          break;
-        case 'l':
-          if (player.holdingItem) {
-            console.log('Launch item!');
-            player.holdingItem = false;
-          } else {
-            console.log('Nothing to launch.');
-          }
-          break;
+
+    // Enemy jump
+    if (enemy.isJumping) {
+      enemy.vy += 1;
+      enemy.y += enemy.vy;
+      if (enemy.y >= enemy.groundY) {
+        enemy.y = enemy.groundY;
+        enemy.isJumping = false;
+        enemy.vy = 0;
       }
+    }
+
+    // Update projectiles
+    projectiles.forEach(p => {
+      p.x += p.vx;
     });
-  
-    // Handle keyup
-    document.addEventListener('keyup', (e) => {
-      switch(e.key.toLowerCase()) {
-        case 'a':
-          keys.left = false;
-          break;
-        case 'd':
-          keys.right = false;
-          break;
+
+    // Remove offscreen
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      if (projectiles[i].x > canvas.width || projectiles[i].x < 0) {
+        projectiles.splice(i, 1);
       }
-    });
-  
-    update();
-  </script>
-  
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawFighter(player);
+    drawFighter(enemy);
+    drawProjectiles();
+
+    requestAnimationFrame(update);
+  }
+
+  document.addEventListener('keydown', (e) => {
+    switch (e.key.toLowerCase()) {
+      // Player 1 (black)
+      case 'a':
+        keys.playerLeft = true;
+        break;
+      case 'd':
+        keys.playerRight = true;
+        break;
+      case 'w':
+        if (!player.isJumping) {
+          player.vy = -15;
+          player.isJumping = true;
+        }
+        break;
+      case 's':
+        if (!player.isKicking) {
+          player.isKicking = true;
+          setTimeout(() => player.isKicking = false, 300);
+        }
+        break;
+      case 'z':
+        if (player.holdingItem) {
+          projectiles.push({ x: player.x + 30, y: player.y - 30, vx: 8 });
+          player.holdingItem = false;
+        }
+        break;
+
+      // Player 2 (red enemy)
+      case 'arrowleft':
+        keys.enemyLeft = true;
+        break;
+      case 'arrowright':
+        keys.enemyRight = true;
+        break;
+      case 'arrowup':
+        if (!enemy.isJumping) {
+          enemy.vy = -15;
+          enemy.isJumping = true;
+        }
+        break;
+      case 'arrowdown':
+        if (!enemy.isKicking) {
+          enemy.isKicking = true;
+          setTimeout(() => enemy.isKicking = false, 300);
+        }
+        break;
+      case 'enter':
+        if (enemy.holdingItem) {
+          projectiles.push({ x: enemy.x - 30, y: enemy.y - 30, vx: -8 });
+          enemy.holdingItem = false;
+        }
+        break;
+    }
+  });
+
+  document.addEventListener('keyup', (e) => {
+    switch (e.key.toLowerCase()) {
+      case 'a':
+        keys.playerLeft = false;
+        break;
+      case 'd':
+        keys.playerRight = false;
+        break;
+      case 'arrowleft':
+        keys.enemyLeft = false;
+        break;
+      case 'arrowright':
+        keys.enemyRight = false;
+        break;
+    }
+  });
+
+  update();
+</script>
 
 </body>
 </html>
