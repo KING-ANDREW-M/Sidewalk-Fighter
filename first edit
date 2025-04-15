@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Simple JS Game</title>
+  <style>
+    canvas {
+      background: #eee;
+      display: block;
+      margin: 20px auto;
+      border: 2px solid #333;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="gameCanvas" width="600" height="400"></canvas>
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+  
+    const player = {
+      x: 100,
+      y: 300,
+      width: 40,
+      height: 60,
+      vy: 0,
+      isJumping: false,
+      holdingItem: true,
+      speed: 5
+    };
+  
+    const keys = {
+      left: false,
+      right: false
+    };
+  
+    function drawPlayer() {
+      ctx.fillStyle = 'blue';
+      ctx.fillRect(player.x, player.y, player.width, player.height);
+    }
+  
+    function update() {
+      // Horizontal movement
+      if (keys.left) {
+        player.x -= player.speed;
+      }
+      if (keys.right) {
+        player.x += player.speed;
+      }
+      if (player.move) {
+        player.x -= player.speed;
+        player.x += player.speed;
+      }
+      // Apply gravity
+      if (player.y < 300) {
+        player.vy += 1;
+      } else {
+        player.vy = 0;
+        player.y = 300;
+        player.isJumping = false;
+      }
+  
+      player.y += player.vy;
+  
+      // Clear and redraw
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawPlayer();
+      requestAnimationFrame(update);
+    }
+  
+    // Handle keydown
+    document.addEventListener('keydown', (e) => {
+      switch(e.key.toLowerCase()) {
+        case 'a':
+          keys.left = true;
+          break;
+        case 'd':
+          keys.right = true;
+          break;
+        case 'j':
+          if (!player.isJumping) {
+            player.vy = -15;
+            player.isJumping = true;
+            console.log('Jump!');
+          }
+          break;
+        case 'k':
+          console.log('Kick!');
+          
+          break;
+        case 'l':
+          if (player.holdingItem) {
+            console.log('Launch item!');
+            player.holdingItem = false;
+          } else {
+            console.log('Nothing to launch.');
+          }
+          break;
+      }
+    });
+  
+    // Handle keyup
+    document.addEventListener('keyup', (e) => {
+      switch(e.key.toLowerCase()) {
+        case 'a':
+          keys.left = false;
+          break;
+        case 'd':
+          keys.right = false;
+          break;
+      }
+    });
+  
+    update();
+  </script>
+  
+
+</body>
+</html>
