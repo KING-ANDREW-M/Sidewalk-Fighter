@@ -26,9 +26,11 @@
     groundY: 300,
     isKicking: false,
     isJumping: false,
+    isBlocking: false,
     vy: 0,
     speed: 4,
     holdingItem: true,
+    health: 100,
     color: 'black'
   };
 
@@ -38,23 +40,24 @@
     groundY: 300,
     isKicking: false,
     isJumping: false,
+    isBlocking: false,
     vy: 0,
-    speed: 4,
+    speed: 2.5,
     holdingItem: true,
+    health: 100,
     color: 'red'
   };
 
   const keys = {
     playerLeft: false,
-    playerRight: false,
-    enemyLeft: false,
-    enemyRight: false
+    playerRight: false
   };
 
   const projectiles = [];
+  let gameOver = false;
 
   function drawFighter(fighter) {
-    const { x, y, isKicking, color, holdingItem } = fighter;
+    const { x, y, isKicking, color, holdingItem, isBlocking } = fighter;
 
     ctx.strokeStyle = color;
     ctx.lineWidth = 4;
@@ -72,8 +75,13 @@
 
     // Arms
     ctx.beginPath();
-    ctx.moveTo(x - 30, y - 30);
-    ctx.lineTo(x + 30, y - 30);
+    if (isBlocking) {
+      ctx.moveTo(x - 10, y - 40);
+      ctx.lineTo(x - 30, y - 70);
+    } else {
+      ctx.moveTo(x - 30, y - 30);
+      ctx.lineTo(x + 30, y - 30);
+    }
     ctx.stroke();
 
     // Legs
@@ -100,6 +108,16 @@
     }
   }
 
+  function drawHealthBars() {
+    ctx.fillStyle = 'black';
+    ctx.fillRect(20, 20, 200, 20);
+    ctx.fillRect(380, 20, 200, 20);
+
+    ctx.fillStyle = 'green';
+    ctx.fillRect(20, 20, 2 * player.health, 20);
+    ctx.fillRect(380 + (200 - 2 * enemy.health), 20, 2 * enemy.health, 20);
+  }
+
   function drawProjectiles() {
     ctx.fillStyle = 'red';
     projectiles.forEach(p => {
@@ -109,52 +127,107 @@
     });
   }
 
+  function drawGameOverMessage() {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'white';
+    ctx.font = '36px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(
+      player.health <= 0 ? 'Enemy Wins!' : 'Player Wins!',
+      canvas.width / 2,
+      canvas.height / 2
+    );
+  }
+
+  function checkCollisions() {
+    // Kicking collision
+    if (player.isKicking && Math.abs(player.x - enemy.x) < 40 && !enemy.isBlocking) {
+      enemy.health -= 5;
+    }
+
+    if (enemy.isKicking && Math.abs(enemy.x - player.x) < 40 && !player.isBlocking) {
+      player.health -= 5;
+    }
+
+    // Projectile collision
+    projectiles.forEach(p => {
+      if (p.vx > 0 && Math.abs(p.x - enemy.x) < 20 && Math.abs(p.y - enemy.y + 30) < 40) {
+        enemy.health -= 3;
+        p.hit = true;
+      }
+      if (p.vx < 0 && Math.abs(p.x - player.x) < 20 && Math.abs(p.y - player.y + 30) < 40) {
+        // Projectile doesn't hurt player
+        p.hit = true;
+      }
+    });
+
+    // Remove hit projectiles
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      if (projectiles[i].hit || projectiles[i].x < 0 || projectiles[i].x > canvas.width) {
+        projectiles.splice(i, 1);
+      }
+    }
+  }
+
+  function enemyAI() {
+    if (enemy.health <= 0 || player.health <= 0) return;
+
+    const distance = player.x - enemy.x;
+
+    if (Math.abs(distance) > 50) {
+      enemy.x += distance > 0 ? enemy.speed : -enemy.speed;
+    } else {
+      if (!enemy.isKicking && Math.random() < 0.02) {
+        enemy.isKicking = true;
+        setTimeout(() => enemy.isKicking = false, 300);
+      }
+      if (!enemy.isBlocking && Math.random() < 0.02) {
+        enemy.isBlocking = true;
+        setTimeout(() => enemy.isBlocking = false, 500);
+      }
+      if (enemy.holdingItem && Math.random() < 0.01) {
+        projectiles.push({ x: enemy.x - 30, y: enemy.y - 30, vx: -8 });
+        enemy.holdingItem = false;
+      }
+    }
+  }
+
   function update() {
-    // Player 1 movement
+    if (gameOver) return;
+
+    // Player movement
     if (keys.playerLeft) player.x -= player.speed;
     if (keys.playerRight) player.x += player.speed;
     player.x = Math.max(20, Math.min(canvas.width - 20, player.x));
 
-    // Player 2 (enemy) movement
-    if (keys.enemyLeft) enemy.x -= enemy.speed;
-    if (keys.enemyRight) enemy.x += enemy.speed;
-    enemy.x = Math.max(20, Math.min(canvas.width - 20, enemy.x));
-
-    // Player jump
-    if (player.isJumping) {
-      player.vy += 1;
-      player.y += player.vy;
-      if (player.y >= player.groundY) {
-        player.y = player.groundY;
-        player.isJumping = false;
-        player.vy = 0;
+    // Jumping
+    [player, enemy].forEach(f => {
+      if (f.isJumping) {
+        f.vy += 1;
+        f.y += f.vy;
+        if (f.y >= f.groundY) {
+          f.y = f.groundY;
+          f.isJumping = false;
+          f.vy = 0;
+        }
       }
-    }
-
-    // Enemy jump
-    if (enemy.isJumping) {
-      enemy.vy += 1;
-      enemy.y += enemy.vy;
-      if (enemy.y >= enemy.groundY) {
-        enemy.y = enemy.groundY;
-        enemy.isJumping = false;
-        enemy.vy = 0;
-      }
-    }
-
-    // Update projectiles
-    projectiles.forEach(p => {
-      p.x += p.vx;
     });
 
-    // Remove offscreen
-    for (let i = projectiles.length - 1; i >= 0; i--) {
-      if (projectiles[i].x > canvas.width || projectiles[i].x < 0) {
-        projectiles.splice(i, 1);
-      }
+    // Update projectiles
+    projectiles.forEach(p => p.x += p.vx);
+
+    enemyAI();
+    checkCollisions();
+
+    if (player.health <= 0 || enemy.health <= 0) {
+      gameOver = true;
+      setTimeout(drawGameOverMessage, 100);
+      return;
     }
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawHealthBars();
     drawFighter(player);
     drawFighter(enemy);
     drawProjectiles();
@@ -164,7 +237,6 @@
 
   document.addEventListener('keydown', (e) => {
     switch (e.key.toLowerCase()) {
-      // Player 1 (black)
       case 'a':
         keys.playerLeft = true;
         break;
@@ -189,30 +261,16 @@
           player.holdingItem = false;
         }
         break;
-
-      // Player 2 (red enemy)
-      case 'arrowleft':
-        keys.enemyLeft = true;
-        break;
-      case 'arrowright':
-        keys.enemyRight = true;
-        break;
-      case 'arrowup':
-        if (!enemy.isJumping) {
-          enemy.vy = -15;
-          enemy.isJumping = true;
+      case 'b':
+        if (!player.isBlocking) {
+          player.isBlocking = true;
+          setTimeout(() => player.isBlocking = false, 500);
         }
         break;
-      case 'arrowdown':
-        if (!enemy.isKicking) {
-          enemy.isKicking = true;
-          setTimeout(() => enemy.isKicking = false, 300);
-        }
-        break;
-      case 'enter':
-        if (enemy.holdingItem) {
-          projectiles.push({ x: enemy.x - 30, y: enemy.y - 30, vx: -8 });
-          enemy.holdingItem = false;
+      case 'shift':
+        if (!enemy.isBlocking) {
+          enemy.isBlocking = true;
+          setTimeout(() => enemy.isBlocking = false, 500);
         }
         break;
     }
@@ -225,12 +283,6 @@
         break;
       case 'd':
         keys.playerRight = false;
-        break;
-      case 'arrowleft':
-        keys.enemyLeft = false;
-        break;
-      case 'arrowright':
-        keys.enemyRight = false;
         break;
     }
   });
